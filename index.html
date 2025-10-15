@@ -2,13 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Speaker Highlighter v3.6</title>
+<title>Speaker Highlighter v3.7</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 body { font-family: Arial, sans-serif; margin:20px; background:#fafafa; color:#111; }
 textarea { width:100%; height:220px; font-size:16px; padding:10px; margin-bottom:10px; font-family: monospace; }
 button { margin:4px; padding:8px 12px; border:none; border-radius:6px; cursor:pointer; background:#444; color:white; }
 button:hover { background:#222; }
+input[type=color] { margin-left:4px; margin-right:10px; cursor:pointer; }
 #controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }
 #output { white-space:pre-wrap; background:white; padding:12px; border-radius:8px; min-height:200px; overflow:auto; }
 .highlight { display:block; margin:6px 0; border-radius:4px; padding:2px 4px; }
@@ -16,12 +17,12 @@ button:hover { background:#222; }
 .scene { background:#efe0ff; color:#4b0082; font-weight:bold; padding:6px; border-left:6px solid #6a0dad; margin:8px 0; display:block; }
 #speakerControls { margin-bottom:10px; }
 #legend { margin-bottom:10px; display:flex; flex-wrap:wrap; gap:8px; }
-.legend-item { padding:4px 8px; border-radius:4px; color:white; font-weight:bold; }
+.legend-item { padding:4px 8px; border-radius:4px; color:white; font-weight:bold; display:flex; align-items:center; gap:4px; }
 </style>
 </head>
 <body>
 
-<h1>🎭 Speaker Highlighter v3.6</h1>
+<h1>🎭 Speaker Highlighter v3.7</h1>
 
 <textarea id="scriptInput" placeholder="Paste your script here..."></textarea>
 
@@ -54,6 +55,7 @@ function detectSpeakers(){
   detectedSpeakers = [...new Set(matches.map(m => m[1].trim()))];
   renderSpeakerControls();
   renderLegend();
+  highlightScript();
 }
 
 function renderSpeakerControls(){
@@ -62,11 +64,18 @@ function renderSpeakerControls(){
   detectedSpeakers.forEach((sp,i)=>{
     if(!speakerColors[sp]) speakerColors[sp]=vividColors[i % vividColors.length];
     if(toggled[sp]===undefined) toggled[sp]=true;
-    div.innerHTML += `<label><input type="checkbox" data-sp="${sp}" ${toggled[sp]?'checked':''}> <span style="color:${speakerColors[sp]}">${sp}</span></label> `;
+    div.innerHTML += `<label><input type="checkbox" data-sp="${sp}" ${toggled[sp]?'checked':''}> <span style="color:${speakerColors[sp]}">${sp}</span> <input type="color" value="${speakerColors[sp]}" data-sp="${sp}" onchange="changeSpeakerColor(this)"> </label>`;
   });
   div.querySelectorAll('input[type=checkbox]').forEach(cb=>{
     cb.onchange=e=>{ toggled[e.target.dataset.sp]=e.target.checked; highlightScript(); };
   });
+}
+
+function changeSpeakerColor(input){
+  const sp = input.dataset.sp;
+  speakerColors[sp] = input.value;
+  renderLegend();
+  highlightScript();
 }
 
 function renderLegend(){
@@ -94,10 +103,10 @@ function highlightScript(){
       const sp = match[1].trim();
       const speech = match[2].trim();
       const color = speakerColors[sp]||'#ccc';
-      if(!toggled[sp]) 
+      if(!toggled[sp])
         return `<span class="highlight" style="background:#eee; font-size:${font}px; display:block; padding:2px 4px;"><span class="speaker">${sp}:</span> ${speech}</span>`;
-      // FULL-LINE solid background
-      return `<span class="highlight" style="background:${color}; font-size:${font}px; display:block; padding:2px 4px;"><span class="speaker" style="color:white">${sp}:</span> ${speech}</span>`;
+      // FULL-LINE highlight + text color
+      return `<span class="highlight" style="background:${color}33; font-size:${font}px; display:block; padding:2px 4px; color:${color};"><span class="speaker" style="color:${color}; font-weight:bold">${sp}:</span> ${speech}</span>`;
     }
     return `<span style="font-size:${font}px">${line}</span>`;
   }).join('\n');
