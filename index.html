@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Speaker Highlighter v3.9</title>
+<title>Speaker Highlighter v3.10</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 <style>
@@ -22,7 +22,7 @@ input[type=color] { margin-left:4px; margin-right:10px; cursor:pointer; }
 </head>
 <body>
 
-<h1>🎭 Speaker Highlighter v3.9</h1>
+<h1>🎭 Speaker Highlighter v3.10</h1>
 
 <textarea id="scriptInput" placeholder="Paste your script here..."></textarea>
 
@@ -43,7 +43,6 @@ input[type=color] { margin-left:4px; margin-right:10px; cursor:pointer; }
 
 <script>
 const speakerColors = {};
-const speakerBgColors = {};
 const vividColors = ['#e6194b','#3cb44b','#ffe119','#4363d8','#f58231','#911eb4','#46f0f0','#f032e6','#bcf60c','#fabebe','#008080','#e6beff','#9a6324','#fffac8','#800000'];
 let detectedSpeakers = [];
 let toggled = {};
@@ -56,7 +55,6 @@ function detectSpeakers(){
   detectedSpeakers = [...new Set(matches.map(m => m[1].trim()))];
   detectedSpeakers.forEach((sp,i)=>{
     if(!speakerColors[sp]) speakerColors[sp] = vividColors[i % vividColors.length];
-    if(!speakerBgColors[sp]) speakerBgColors[sp] = vividColors[i % vividColors.length] + '33'; // light background
     if(toggled[sp]===undefined) toggled[sp] = true;
   });
   renderSpeakerControls();
@@ -71,8 +69,7 @@ function renderSpeakerControls(){
     div.innerHTML += `<label>
       <input type="checkbox" data-sp="${sp}" ${toggled[sp]?'checked':''}> 
       <span style="color:${speakerColors[sp]}">${sp}</span>
-      Text: <input type="color" value="${speakerColors[sp]}" data-sp="${sp}" onchange="changeSpeakerTextColor(this)">
-      BG: <input type="color" value="${speakerBgColors[sp]}" data-sp="${sp}" onchange="changeSpeakerBgColor(this)">
+      <input type="color" value="${speakerColors[sp]}" data-sp="${sp}" onchange="changeSpeakerTextColor(this)">
     </label> `;
   });
   div.querySelectorAll('input[type=checkbox]').forEach(cb=>{
@@ -87,19 +84,11 @@ function changeSpeakerTextColor(input){
   highlightScript();
 }
 
-function changeSpeakerBgColor(input){
-  const sp = input.dataset.sp;
-  speakerBgColors[sp] = input.value;
-  renderLegend();
-  highlightScript();
-}
-
 function renderLegend(){
   const div = document.getElementById("legend");
   div.innerHTML = '';
   detectedSpeakers.forEach(sp=>{
     const color = speakerColors[sp];
-    const bg = speakerBgColors[sp];
     const item = document.createElement('div');
     item.className='legend-item';
     item.style.background=color;
@@ -115,17 +104,16 @@ function highlightScript(){
   const out = lines.map(line=>{
     const sceneMatch = line.match(/^\{SCENE\}/i);
     if(sceneMatch) 
-      return `<div style="text-align:center; font-size:${font}px; page-break-after:always; font-weight:bold; background:#efe0ff; color:#4b0082; padding:6px; border-left:6px solid #6a0dad; margin:12px 0;">${line}</div>`;
+      return `<div style="text-align:center; font-size:${font}px; font-weight:bold; background:#efe0ff; color:#4b0082; padding:6px; border-left:6px solid #6a0dad; margin:12px 0;">${line}</div>`;
     
     const match = line.match(/^([A-Za-z0-9 .'-]+):(.*)/);
     if(match){
       const sp = match[1].trim();
       const speech = match[2].trim();
       const textColor = speakerColors[sp] || '#000';
-      const bgColor = speakerBgColors[sp] || '#eee';
       if(!toggled[sp])
         return `<span class="highlight" style="background:#eee; font-size:${font}px; display:block; padding:2px 4px;"><span class="speaker">${sp}:</span> ${speech}</span>`;
-      return `<span class="highlight" style="background:${bgColor}; font-size:${font}px; display:block; padding:2px 4px; color:${textColor};">
+      return `<span class="highlight" style="font-size:${font}px; display:block; padding:2px 4px; color:${textColor};">
         <span class="speaker" style="color:${textColor}; font-weight:bold">${sp}:</span> ${speech}</span>`;
     }
     return `<span style="font-size:${font}px">${line}</span>`;
