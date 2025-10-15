@@ -1,159 +1,131 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <base target="_top">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Script Highlighter</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <style>
-    body{font-family:Arial, sans-serif;margin:20px;background:#fafafa;color:#111}
-    textarea{width:100%;height:180px;padding:8px;box-sizing:border-box;font-family:monospace}
-    button{padding:6px 10px;border:none;border-radius:6px;margin:4px;cursor:pointer}
-    button.primary{background:#0ea5a4;color:white}
-    button.secondary{background:#374151;color:white}
-    .controls{margin:10px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-    .speaker-toggles{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}
-    .speaker{display:flex;align-items:center;gap:6px;background:#f1f5f9;padding:6px 8px;border-radius:8px}
-    input[type="color"]{width:32px;height:28px;border:none;padding:0}
-    .output{margin-top:12px;background:white;padding:12px;border-radius:8px;border:1px solid #ddd;max-height:400px;overflow:auto}
-    .line{margin-bottom:6px;padding:6px;border-radius:6px;white-space:pre-wrap}
-    .speakerName{font-weight:bold;margin-right:6px}
-    .stage{background:#f3f4f6;font-style:italic;color:#444;padding:6px;border-radius:6px}
-    .scene{background:#efe0ff;color:#4b0082;padding:10px;border-left:6px solid #6a0dad;font-weight:bold;margin-top:8px}
-    .muted{background:#d1d5db !important;color:#374151 !important}
-    .legend{background:#f3f4f6;padding:8px;border-radius:6px;margin-bottom:8px;font-size:13px}
-  </style>
+<meta charset="UTF-8">
+<title>Speaker Highlighter v3.3</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+body { font-family: Arial, sans-serif; margin:20px; background:#fafafa; color:#111; }
+textarea { width:100%; height:220px; font-size:16px; padding:10px; margin-bottom:10px; font-family: monospace; }
+button { margin:4px; padding:8px 12px; border:none; border-radius:6px; cursor:pointer; background:#444; color:white; }
+button:hover { background:#222; }
+#controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }
+#output { white-space:pre-wrap; background:white; padding:12px; border-radius:8px; min-height:200px; overflow:auto; }
+.highlight { display:block; margin:6px 0; padding:4px; border-radius:4px; }
+.speaker { font-weight:bold; text-transform:uppercase; }
+.scene { background:#efe0ff; color:#4b0082; font-weight:bold; padding:6px; border-left:6px solid #6a0dad; margin:8px 0; display:block; }
+#speakerControls { margin-bottom:10px; }
+</style>
 </head>
 <body>
-  <h2>🎭 Script Highlighter</h2>
-  <textarea id="scriptInput" placeholder="Paste your full script here..."></textarea>
 
-  <div class="controls">
-    <button class="primary" onclick="highlight()">Highlight Speakers</button>
-    <button class="secondary" onclick="addSpeakerManual()">Add Speaker</button>
-    <button onclick="toggleAll(true)">Toggle All On</button>
-    <button onclick="toggleAll(false)">Toggle All Off</button>
-    <label>Font size: <input id="fontSize" type="number" min="8" max="20" value="12" style="width:60px"></label>
-    <button onclick="copyAll()">Copy All</button>
-    <button onclick="downloadPDF()">Download PDF</button>
-  </div>
+<h1>🎭 Speaker Highlighter v3.3</h1>
 
-  <div id="speakerToggles" class="speaker-toggles"></div>
-  <div id="legend" class="legend" style="display:none"></div>
+<textarea id="scriptInput" placeholder="Paste your script here..."></textarea>
 
-  <div id="output" class="output"></div>
+<div id="controls">
+  <button onclick="detectSpeakers()">Detect Speakers</button>
+  <button onclick="highlightScript()">Highlight Speakers</button>
+  <button onclick="toggleAllSpeakers()">Toggle All</button>
+  <button onclick="copyHTML()">Copy HTML</button>
+  <button onclick="copyText()">Copy Text</button>
+  <button onclick="downloadPDF()">Download PDF</button>
+  <label>Font size: <input id="fontSize" type="range" min="12" max="32" value="16" oninput="updateFontSize(this.value)"> <span id="fontSizeVal">16</span>pt</label>
+</div>
 
-  <script>
-    const VIVID = ['#ff6b6b','#ffbe6b','#ffd166','#9be564','#56d0ff','#6b8cff','#c457ff','#ff61c6','#59ff8a','#ffa86b'];
-    let speakerSettings = {};
-    let blocks = [];
+<div id="speakerControls"></div>
+<hr>
+<div id="output"></div>
 
-    function parse(raw) {
-      const lines = raw.replace(/\r/g,'').split('\n');
-      const out = [];
-      for (let i=0;i<lines.length;i++) {
-        const L = lines[i].trim();
-        if (!L) { out.push({type:'blank'}); continue; }
-        if (L.startsWith('{') && L.endsWith('}')) { out.push({type:'scene', text:L.slice(1,-1).trim()}); continue; }
-        if (L.startsWith('(') && L.endsWith(')')) { out.push({type:'stage', text:L.slice(1,-1).trim()}); continue; }
-        const idx = L.indexOf(':');
-        if (idx > 0) {
-          const name = L.slice(0,idx).trim();
-          const dialogue = L.slice(idx+1).trim();
-          if (!speakerSettings[name]) speakerSettings[name] = { color: VIVID[Object.keys(speakerSettings).length % VIVID.length], enabled: true };
-          out.push({type:'speaker', speaker:name, text:dialogue});
-        } else {
-          if (out.length && out[out.length-1].type === 'speaker')
-            out[out.length-1].text += '\n' + L;
-          else out.push({type:'stage', text:L});
-        }
-      }
-      return out;
+<script>
+const speakerColors = {};
+const vividColors = ['#e6194b','#3cb44b','#ffe119','#4363d8','#f58231','#911eb4','#46f0f0','#f032e6','#bcf60c','#fabebe','#008080','#e6beff','#9a6324','#fffac8','#800000'];
+let detectedSpeakers = [];
+let toggled = {};
+
+function detectSpeakers(){
+  const text = document.getElementById("scriptInput").value;
+  const matches = [...text.matchAll(/^([A-Za-z0-9 .'-]+):/gm)];
+  detectedSpeakers = [...new Set(matches.map(m => m[1].trim()))];
+  renderSpeakerControls();
+}
+
+function renderSpeakerControls(){
+  const div = document.getElementById("speakerControls");
+  div.innerHTML = "<strong>Speakers:</strong><br>";
+  detectedSpeakers.forEach((sp,i)=>{
+    if(!speakerColors[sp]) speakerColors[sp]=vividColors[i % vividColors.length];
+    if(toggled[sp]===undefined) toggled[sp]=true;
+    div.innerHTML += `<label><input type="checkbox" data-sp="${sp}" ${toggled[sp]?'checked':''}> <span style="color:${speakerColors[sp]}">${sp}</span></label> `;
+  });
+  div.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.onchange=e=>{ toggled[e.target.dataset.sp]=e.target.checked; highlightScript(); };
+  });
+}
+
+function highlightScript(){
+  const text = document.getElementById("scriptInput").value;
+  const lines = text.split('\n');
+  const font = document.getElementById("fontSize").value;
+  const out = lines.map(line=>{
+    const sceneMatch = line.match(/^\{SCENE\}/i);
+    if(sceneMatch) return `<span class="scene" style="font-size:${font}px">${line}</span>`;
+    const match = line.match(/^([A-Za-z0-9 .'-]+):(.*)/);
+    if(match){
+      const sp = match[1].trim();
+      const speech = match[2].trim();
+      const color = speakerColors[sp]||'#ccc';
+      if(!toggled[sp]) return `<span class="highlight" style="background:#eee; font-size:${font}px"><span class="speaker">${sp}:</span> ${speech}</span>`;
+      return `<span class="highlight" style="background:${color}22; font-size:${font}px"><span class="speaker" style="color:${color}">${sp}:</span> ${speech}</span>`;
     }
+    return `<span style="font-size:${font}px">${line}</span>`;
+  }).join('\n');
+  document.getElementById("output").innerHTML = out;
+}
 
-    function highlight() {
-      const raw = document.getElementById('scriptInput').value || '';
-      blocks = parse(raw);
-      renderToggles();
-      renderPreview();
-    }
+function toggleAllSpeakers(){
+  const allOn = Object.values(toggled).every(v=>v);
+  Object.keys(toggled).forEach(sp=>toggled[sp]=!allOn);
+  renderSpeakerControls();
+  highlightScript();
+}
 
-    function renderToggles() {
-      const area = document.getElementById('speakerToggles');
-      area.innerHTML = '';
-      Object.keys(speakerSettings).forEach(n => {
-        const lab = document.createElement('label');
-        lab.className='speaker';
-        const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=speakerSettings[n].enabled;
-        cb.onchange=()=>{speakerSettings[n].enabled=cb.checked; renderPreview();};
-        const color=document.createElement('input'); color.type='color'; color.value=speakerSettings[n].color;
-        color.oninput=e=>{speakerSettings[n].color=e.target.value; renderPreview(); buildLegend();};
-        lab.append(cb,color,document.createTextNode(n));
-        area.appendChild(lab);
-      });
-      buildLegend();
-    }
+function copyHTML(){
+  const out = document.getElementById("output");
+  navigator.clipboard.writeText(out.innerHTML);
+  alert("Copied HTML with colors!");
+}
 
-    function buildLegend(){
-      const leg=document.getElementById('legend');
-      const names=Object.keys(speakerSettings);
-      if(!names.length){leg.style.display='none';return;}
-      leg.style.display='block';
-      leg.innerHTML='<strong>Legend:</strong> ';
-      names.forEach(n=>{
-        const chip=document.createElement('span');
-        chip.textContent=n;
-        chip.style.background=speakerSettings[n].color;
-        chip.style.padding='4px 8px';
-        chip.style.borderRadius='6px';
-        chip.style.marginLeft='8px';
-        leg.appendChild(chip);
-      });
-    }
+function copyText(){
+  const out = document.getElementById("output");
+  navigator.clipboard.writeText(out.innerText);
+  alert("Copied plain text!");
+}
 
-    function renderPreview(){
-      const out=document.getElementById('output');
-      out.innerHTML='';
-      const font=Number(document.getElementById('fontSize').value)||12;
-      blocks.forEach(b=>{
-        if(b.type==='blank'){out.appendChild(document.createElement('br'));return;}
-        if(b.type==='scene'){const el=document.createElement('div');el.className='scene';el.textContent=b.text;out.appendChild(el);return;}
-        if(b.type==='stage'){const el=document.createElement('div');el.className='stage';el.textContent=b.text;out.appendChild(el);return;}
-        if(b.type==='speaker'){
-          const el=document.createElement('div');el.className='line';
-          const n=document.createElement('span');n.className='speakerName';n.textContent=b.speaker+':';
-          const t=document.createElement('span');t.textContent=' '+b.text;t.style.fontSize=font+'pt';
-          el.append(n,t);
-          if(speakerSettings[b.speaker].enabled)
-            el.style.background=speakerSettings[b.speaker].color+'33';
-          else el.classList.add('muted');
-          out.appendChild(el);
-        }
-      });
-    }
+function updateFontSize(val){
+  document.getElementById("fontSizeVal").innerText = val;
+  highlightScript();
+}
 
-    function addSpeakerManual(){
-      const name=prompt('Speaker name:');
-      if(!name)return;
-      speakerSettings[name]={color:VIVID[Object.keys(speakerSettings).length%VIVID.length],enabled:true};
-      renderToggles();renderPreview();
-    }
+function downloadPDF(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt', format:'a4'});
+  const output = document.getElementById("output").cloneNode(true);
+  output.style.whiteSpace='normal';
+  const html = output.innerHTML;
+  doc.html(html,{
+    callback: function(doc){
+      doc.save("highlighted_script.pdf");
+    },
+    x:20,
+    y:20,
+    html2canvas:{scale:2},
+    margin:[20,20,20,20],
+    autoPaging:true
+  });
+}
+</script>
 
-    function toggleAll(state){
-      Object.keys(speakerSettings).forEach(k=>speakerSettings[k].enabled=state);
-      renderToggles();renderPreview();
-    }
-
-    function copyAll(){
-      navigator.clipboard.writeText(document.getElementById('output').innerText);
-      alert('Copied all text to clipboard!');
-    }
-
-    function downloadPDF(){
-      const container=document.getElementById('output').cloneNode(true);
-      const opt={margin:0.5,filename:'highlighted_script.pdf',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2},jsPDF:{unit:'in',format:'letter',orientation:'portrait'}};
-      html2pdf().set(opt).from(container).save();
-    }
-  </script>
 </body>
 </html>
+
