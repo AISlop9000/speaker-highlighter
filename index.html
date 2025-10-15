@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Speaker Highlighter v3.5</title>
+<title>Speaker Highlighter v3.6</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 body { font-family: Arial, sans-serif; margin:20px; background:#fafafa; color:#111; }
@@ -11,15 +11,17 @@ button { margin:4px; padding:8px 12px; border:none; border-radius:6px; cursor:po
 button:hover { background:#222; }
 #controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }
 #output { white-space:pre-wrap; background:white; padding:12px; border-radius:8px; min-height:200px; overflow:auto; }
-.highlight { display:block; margin:6px 0; border-radius:4px; }
+.highlight { display:block; margin:6px 0; border-radius:4px; padding:2px 4px; }
 .speaker { font-weight:bold; text-transform:uppercase; }
 .scene { background:#efe0ff; color:#4b0082; font-weight:bold; padding:6px; border-left:6px solid #6a0dad; margin:8px 0; display:block; }
 #speakerControls { margin-bottom:10px; }
+#legend { margin-bottom:10px; display:flex; flex-wrap:wrap; gap:8px; }
+.legend-item { padding:4px 8px; border-radius:4px; color:white; font-weight:bold; }
 </style>
 </head>
 <body>
 
-<h1>🎭 Speaker Highlighter v3.5</h1>
+<h1>🎭 Speaker Highlighter v3.6</h1>
 
 <textarea id="scriptInput" placeholder="Paste your script here..."></textarea>
 
@@ -33,6 +35,7 @@ button:hover { background:#222; }
   <label>Font size: <input id="fontSize" type="range" min="12" max="32" value="16" oninput="updateFontSize(this.value)"> <span id="fontSizeVal">16</span>pt</label>
 </div>
 
+<div id="legend"></div>
 <div id="speakerControls"></div>
 <hr>
 <div id="output"></div>
@@ -50,6 +53,7 @@ function detectSpeakers(){
   const matches = [...text.matchAll(/^([A-Za-z0-9 .'-]+):/gm)];
   detectedSpeakers = [...new Set(matches.map(m => m[1].trim()))];
   renderSpeakerControls();
+  renderLegend();
 }
 
 function renderSpeakerControls(){
@@ -62,6 +66,19 @@ function renderSpeakerControls(){
   });
   div.querySelectorAll('input[type=checkbox]').forEach(cb=>{
     cb.onchange=e=>{ toggled[e.target.dataset.sp]=e.target.checked; highlightScript(); };
+  });
+}
+
+function renderLegend(){
+  const div = document.getElementById("legend");
+  div.innerHTML = '';
+  detectedSpeakers.forEach(sp=>{
+    const color = speakerColors[sp];
+    const item = document.createElement('div');
+    item.className='legend-item';
+    item.style.background=color;
+    item.innerText=sp;
+    div.appendChild(item);
   });
 }
 
@@ -79,7 +96,8 @@ function highlightScript(){
       const color = speakerColors[sp]||'#ccc';
       if(!toggled[sp]) 
         return `<span class="highlight" style="background:#eee; font-size:${font}px; display:block; padding:2px 4px;"><span class="speaker">${sp}:</span> ${speech}</span>`;
-      return `<span class="highlight" style="background:${color}22; font-size:${font}px; display:block; padding:2px 4px;"><span class="speaker" style="color:${color}">${sp}:</span> ${speech}</span>`;
+      // FULL-LINE solid background
+      return `<span class="highlight" style="background:${color}; font-size:${font}px; display:block; padding:2px 4px;"><span class="speaker" style="color:white">${sp}:</span> ${speech}</span>`;
     }
     return `<span style="font-size:${font}px">${line}</span>`;
   }).join('\n');
