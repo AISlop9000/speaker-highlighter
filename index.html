@@ -77,10 +77,11 @@ function highlightScript(){
       const sp = match[1].trim();
       const speech = match[2].trim();
       const color = speakerColors[sp]||'#ccc';
-      if(!toggled[sp]) return `<span class="highlight" style="background:#eee; font-size:${font}px"><span class="speaker">${sp}:</span> ${speech}</span>`;
-      return `<span class="highlight" style="background:${color}22; font-size:${font}px"><span class="speaker" style="color:${color}">${sp}:</span> ${speech}</span>`;
-    }
-    return `<span style="font-size:${font}px">${line}</span>`;
+      if(!toggled[sp]) 
+    return `<span class="highlight" style="background:#eee; font-size:${font}px; display:block; padding:2px 4px;"><span class="speaker">${sp}:</span> ${speech}</span>`;
+
+return `<span class="highlight" style="background:${color}22; font-size:${font}px; display:block; padding:2px 4px;"><span class="speaker" style="color:${color}">${sp}:</span> ${speech}</span>`;
+
   }).join('\n');
   document.getElementById("output").innerHTML = out;
 }
