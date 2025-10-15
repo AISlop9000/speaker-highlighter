@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Speaker Highlighter v3.3</title>
+<title>Speaker Highlighter v3.4</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 body { font-family: Arial, sans-serif; margin:20px; background:#fafafa; color:#111; }
@@ -19,7 +19,7 @@ button:hover { background:#222; }
 </head>
 <body>
 
-<h1>🎭 Speaker Highlighter v3.3</h1>
+<h1>🎭 Speaker Highlighter v3.4</h1>
 
 <textarea id="scriptInput" placeholder="Paste your script here..."></textarea>
 
@@ -27,7 +27,7 @@ button:hover { background:#222; }
   <button onclick="detectSpeakers()">Detect Speakers</button>
   <button onclick="highlightScript()">Highlight Speakers</button>
   <button onclick="toggleAllSpeakers()">Toggle All</button>
-  <button onclick="copyHTML()">Copy HTML</button>
+  <button onclick="copyForDocs()">Copy for Docs</button>
   <button onclick="copyText()">Copy Text</button>
   <button onclick="downloadPDF()">Download PDF</button>
   <label>Font size: <input id="fontSize" type="range" min="12" max="32" value="16" oninput="updateFontSize(this.value)"> <span id="fontSizeVal">16</span>pt</label>
@@ -42,6 +42,8 @@ const speakerColors = {};
 const vividColors = ['#e6194b','#3cb44b','#ffe119','#4363d8','#f58231','#911eb4','#46f0f0','#f032e6','#bcf60c','#fabebe','#008080','#e6beff','#9a6324','#fffac8','#800000'];
 let detectedSpeakers = [];
 let toggled = {};
+
+document.getElementById("fontSize").addEventListener('input', e => updateFontSize(e.target.value));
 
 function detectSpeakers(){
   const text = document.getElementById("scriptInput").value;
@@ -90,10 +92,29 @@ function toggleAllSpeakers(){
   highlightScript();
 }
 
-function copyHTML(){
-  const out = document.getElementById("output");
-  navigator.clipboard.writeText(out.innerHTML);
-  alert("Copied HTML with colors!");
+function copyForDocs(){
+  const output = document.getElementById("output");
+  const temp = document.createElement('div');
+  temp.style.position = 'absolute';
+  temp.style.left = '-9999px';
+  temp.innerHTML = output.innerHTML;
+  document.body.appendChild(temp);
+
+  const range = document.createRange();
+  range.selectNodeContents(temp);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+
+  try {
+    document.execCommand('copy');
+    alert('Copied rich text for Docs!');
+  } catch(e){
+    alert('Copy failed. Try manually selecting the text.');
+  }
+
+  sel.removeAllRanges();
+  document.body.removeChild(temp);
 }
 
 function copyText(){
@@ -112,11 +133,8 @@ function downloadPDF(){
   const doc = new jsPDF({unit:'pt', format:'a4'});
   const output = document.getElementById("output").cloneNode(true);
   output.style.whiteSpace='normal';
-  const html = output.innerHTML;
-  doc.html(html,{
-    callback: function(doc){
-      doc.save("highlighted_script.pdf");
-    },
+  doc.html(output,{
+    callback: function(doc){ doc.save("highlighted_script.pdf"); },
     x:20,
     y:20,
     html2canvas:{scale:2},
@@ -128,4 +146,3 @@ function downloadPDF(){
 
 </body>
 </html>
-
