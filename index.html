@@ -2,9 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Speaker Highlighter v3.10</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+<title>Speaker Highlighter v3.11</title>
 <style>
 body { font-family: Arial, sans-serif; margin:20px; background:#fafafa; color:#111; }
 textarea { width:100%; height:220px; font-size:16px; padding:10px; margin-bottom:10px; font-family: monospace; }
@@ -22,7 +20,7 @@ input[type=color] { margin-left:4px; margin-right:10px; cursor:pointer; }
 </head>
 <body>
 
-<h1>🎭 Speaker Highlighter v3.10</h1>
+<h1>🎭 Speaker Highlighter v3.11</h1>
 
 <textarea id="scriptInput" placeholder="Paste your script here..."></textarea>
 
@@ -32,7 +30,6 @@ input[type=color] { margin-left:4px; margin-right:10px; cursor:pointer; }
   <button onclick="toggleAllSpeakers()">Toggle All</button>
   <button onclick="copyForDocs()">Copy for Docs</button>
   <button onclick="copyText()">Copy Text</button>
-  <button onclick="downloadPDF()">Download PDF</button>
   <label>Font size: <input id="fontSize" type="range" min="12" max="32" value="16" oninput="updateFontSize(this.value)"> <span id="fontSizeVal">16</span>pt</label>
 </div>
 
@@ -104,7 +101,7 @@ function highlightScript(){
   const out = lines.map(line=>{
     const sceneMatch = line.match(/^\{SCENE\}/i);
     if(sceneMatch) 
-      return `<div style="text-align:center; font-size:${font}px; font-weight:bold; background:#efe0ff; color:#4b0082; padding:6px; border-left:6px solid #6a0dad; margin:12px 0;">${line}</div>`;
+      return `<div style="text-align:center; font-size:${font}px; font-weight:bold; margin-top:20px; margin-bottom:20px;">${line}</div>`;
     
     const match = line.match(/^([A-Za-z0-9 .'-]+):(.*)/);
     if(match){
@@ -158,22 +155,6 @@ function copyText(){
 function updateFontSize(val){
   document.getElementById("fontSizeVal").innerText = val;
   highlightScript();
-}
-
-function downloadPDF(){
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({unit:'pt', format:'a4'});
-  const output = document.getElementById("output").cloneNode(true);
-  output.style.whiteSpace='normal';
-
-  doc.html(output,{
-    callback: function(doc){ doc.save("highlighted_script.pdf"); },
-    x:20,
-    y:20,
-    html2canvas:{scale:2, useCORS:true},
-    margin:[20,20,20,20],
-    autoPaging:true
-  });
 }
 </script>
 
