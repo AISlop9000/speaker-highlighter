@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Script Highlighter</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    body{font-family:Arial, sans-serif;margin:20px;background:#fafafa;color:#111}
+    textarea{width:100%;height:180px;padding:8px;box-sizing:border-box;font-family:monospace}
+    button{padding:6px 10px;border:none;border-radius:6px;margin:4px;cursor:pointer}
+    button.primary{background:#0ea5a4;color:white}
+    button.secondary{background:#374151;color:white}
+    .controls{margin:10px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .speaker-toggles{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}
+    .speaker{display:flex;align-items:center;gap:6px;background:#f1f5f9;padding:6px 8px;border-radius:8px}
+    input[type="color"]{width:32px;height:28px;border:none;padding:0}
+    .output{margin-top:12px;background:white;padding:12px;border-radius:8px;border:1px solid #ddd;max-height:400px;overflow:auto}
+    .line{margin-bottom:6px;padding:6px;border-radius:6px;white-space:pre-wrap}
+    .speakerName{font-weight:bold;margin-right:6px}
+    .stage{background:#f3f4f6;font-style:italic;color:#444;padding:6px;border-radius:6px}
+    .scene{background:#efe0ff;color:#4b0082;padding:10px;border-left:6px solid #6a0dad;font-weight:bold;margin-top:8px}
+    .muted{background:#d1d5db !important;color:#374151 !important}
+    .legend{background:#f3f4f6;padding:8px;border-radius:6px;margin-bottom:8px;font-size:13px}
+  </style>
+</head>
+<body>
+  <h2>🎭 Script Highlighter</h2>
+  <textarea id="scriptInput" placeholder="Paste your full script here..."></textarea>
+
+  <div class="controls">
+    <button class="primary" onclick="highlight()">Highlight Speakers</button>
+    <button class="secondary" onclick="addSpeakerManual()">Add Speaker</button>
+    <button onclick="toggleAll(true)">Toggle All On</button>
+    <button onclick="toggleAll(false)">Toggle All Off</button>
+    <label>Font size: <input id="fontSize" type="number" min="8" max="20" value="12" style="width:60px"></label>
+    <button onclick="copyAll()">Copy All</button>
+    <button onclick="downloadPDF()">Download PDF</button>
+  </div>
+
+  <div id="speakerToggles" class="speaker-toggles"></div>
+  <div id="legend" class="legend" style="display:none"></div>
+
+  <div id="output" class="output"></div>
+
+  <script>
+    const VIVID = ['#ff6b6b','#ffbe6b','#ffd166','#9be564','#56d0ff','#6b8cff','#c457ff','#ff61c6','#59ff8a','#ffa86b'];
+    let speakerSettings = {};
+    let blocks = [];
+
+    function parse(raw) {
+      const lines = raw.replace(/\r/g,'').split('\n');
+      const out = [];
+      for (let i=0;i<lines.length;i++) {
+        const L = lines[i].trim();
+        if (!L) { out.push({type:'blank'}); continue; }
+        if (L.startsWith('{') && L.endsWith('}')) { out.push({type:'scene', text:L.slice(1,-1).trim()}); continue; }
+        if (L.startsWith('(') && L.endsWith(')')) { out.push({type:'stage', text:L.slice(1,-1).trim()}); continue; }
+        const idx = L.indexOf(':');
+        if (idx > 0) {
+          const name = L.slice(0,idx).trim();
+          const dialogue = L.slice(idx+1).trim();
+          if (!speakerSettings[name]) speakerSettings[name] = { color: VIVID[Object.keys(speakerSettings).length % VIVID.length], enabled: true };
+          out.push({type:'speaker', speaker:name, text:dialogue});
+        } else {
+          if (out.length && out[out.length-1].type === 'speaker')
+            out[out.length-1].text += '\n' + L;
+          else out.push({type:'stage', text:L});
+        }
+      }
+      return out;
+    }
+
+    function highlight() {
+      const raw = document.getElementById('scriptInput').value || '';
+      blocks = parse(raw);
+      renderToggles();
+      renderPreview();
+    }
+
+    function renderToggles() {
+      const area = document.getElementById('speakerToggles');
+      area.innerHTML = '';
+      Object.keys(speakerSettings).forEach(n => {
+        const lab = document.createElement('label');
+        lab.className='speaker';
+        const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=speakerSettings[n].enabled;
+        cb.onchange=()=>{speakerSettings[n].enabled=cb.checked; renderPreview();};
+        const color=document.createElement('input'); color.type='color'; color.value=speakerSettings[n].color;
+        color.oninput=e=>{speakerSettings[n].color=e.target.value; renderPreview(); buildLegend();};
+        lab.append(cb,color,document.createTextNode(n));
+        area.appendChild(lab);
+      });
+      buildLegend();
+    }
+
+    function buildLegend(){
+      const leg=document.getElementById('legend');
+      const names=Object.keys(speakerSettings);
+      if(!names.length){leg.style.display='none';return;}
+      leg.style.display='block';
+      leg.innerHTML='<strong>Legend:</strong> ';
+      names.forEach(n=>{
+        const chip=document.createElement('span');
+        chip.textContent=n;
+        chip.style.background=speakerSettings[n].color;
+        chip.style.padding='4px 8px';
+        chip.style.borderRadius='6px';
+        chip.style.marginLeft='8px';
+        leg.appendChild(chip);
+      });
+    }
+
+    function renderPreview(){
+      const out=document.getElementById('output');
+      out.innerHTML='';
+      const font=Number(document.getElementById('fontSize').value)||12;
+      blocks.forEach(b=>{
+        if(b.type==='blank'){out.appendChild(document.createElement('br'));return;}
+        if(b.type==='scene'){const el=document.createElement('div');el.className='scene';el.textContent=b.text;out.appendChild(el);return;}
+        if(b.type==='stage'){const el=document.createElement('div');el.className='stage';el.textContent=b.text;out.appendChild(el);return;}
+        if(b.type==='speaker'){
+          const el=document.createElement('div');el.className='line';
+          const n=document.createElement('span');n.className='speakerName';n.textContent=b.speaker+':';
+          const t=document.createElement('span');t.textContent=' '+b.text;t.style.fontSize=font+'pt';
+          el.append(n,t);
+          if(speakerSettings[b.speaker].enabled)
+            el.style.background=speakerSettings[b.speaker].color+'33';
+          else el.classList.add('muted');
+          out.appendChild(el);
+        }
+      });
+    }
+
+    function addSpeakerManual(){
+      const name=prompt('Speaker name:');
+      if(!name)return;
+      speakerSettings[name]={color:VIVID[Object.keys(speakerSettings).length%VIVID.length],enabled:true};
+      renderToggles();renderPreview();
+    }
+
+    function toggleAll(state){
+      Object.keys(speakerSettings).forEach(k=>speakerSettings[k].enabled=state);
+      renderToggles();renderPreview();
+    }
+
+    function copyAll(){
+      navigator.clipboard.writeText(document.getElementById('output').innerText);
+      alert('Copied all text to clipboard!');
+    }
+
+    function downloadPDF(){
+      const container=document.getElementById('output').cloneNode(true);
+      const opt={margin:0.5,filename:'highlighted_script.pdf',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2},jsPDF:{unit:'in',format:'letter',orientation:'portrait'}};
+      html2pdf().set(opt).from(container).save();
+    }
+  </script>
+</body>
+</html>
